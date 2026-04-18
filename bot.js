@@ -5,16 +5,17 @@ const TelegramBot = require('node-telegram-bot-api');
 // --- SOZLAMALAR ---
 const BOTS_CONFIG = [
   { id: 'bot1', username: 'zahridinafk_emas', password: 'shukrona' },
-  { id: 'bot2', username: 'ZZahridin____',      password: 'shukrona' },
+  { id: 'bot2', username: 'Zahridin____',      password: 'shukrona' },
   { id: 'bot3', username: 'Zahridin_unban',    password: 'shukrona' },
   { id: 'bot4', username: 'dffhggfgd',         password: 'shukrona' },
 ];
 
 const SERVER = { host: '92.63.189.147', port: 25565 };
-const TG_TOKEN = '8711128717:AAG25f3UB3Vx2x3iCO4OMku9pVOa6_xoN5o'; 
+
+// YANGI TOKENINGIZNI SHU YERGA QO'YDIM
+const TG_TOKEN = '8711128717:AAF8ev4By3F9DCPIMPYNDZ09Rwl4x6puwwI'; 
 const ADMIN_ID = 8161736033; 
 
-// Telegram bot ulanishi (Polling xatoliklarini kuzatish bilan)
 const tgBot = new TelegramBot(TG_TOKEN, { polling: true });
 
 let bots = {}; 
@@ -111,7 +112,6 @@ tgBot.on('message', (msg) => {
   }
 });
 
-// --- MENYU FUNKSIYASI ---
 function showBotMenu(chatId, botId) {
   const config = BOTS_CONFIG.find(c => c.id === botId);
   const botMenu = {
@@ -140,13 +140,11 @@ function stopBot(id) {
 function createBot(config) {
   if (!globalAllowBots) return;
   const { id, username, password } = config;
-
   if (bots[id]) stopBot(id);
 
   const bot = mineflayer.createBot({ ...SERVER, username });
   bots[id] = bot;
 
-  // Har 1 soatda avtomatik serverni yangilash
   const timer = setInterval(() => {
     if (bots[id] && loginStatus[id] && bots[id].socket && bots[id].socket.writable) {
         bot.chat('/server anarxiya2');
@@ -158,7 +156,7 @@ function createBot(config) {
     if (msg.includes('ʟᴏɢɪɴ') || msg.includes('Tizimga kirish') || msg.includes('/login')) {
         bot.chat(`/login ${password}`);
     }
-    if (msg.includes('xᴜꜱʜ ᴋᴇʙɪꜱɪᴢ') || msg.includes('muvaffaqiyatli kirdingiz') || msg.includes(username)) {
+    if (msg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') || msg.includes('muvaffaqiyatli kirdingiz') || msg.includes(username)) {
       loginStatus[id] = true;
       setTimeout(() => { if (bots[id]) bot.chat('/server anarxiya2'); }, 5000);
     }
@@ -189,15 +187,11 @@ function startAllBots() {
   });
 }
 
-// Polling xatoliklarini tutish (409 Conflict uchun)
-tgBot.on('polling_error', (err) => {
-    if (err.message.includes('409 Conflict')) {
-        console.log("⚠️ Bot bittadan ko'p joyda ishlayapti!");
-    }
-});
+// --- ANTI-CRASH VA POLLING ---
+tgBot.on('polling_error', (err) => console.log("Polling Error:", err.message));
+process.on('uncaughtException', (err) => console.log('Tutilmagan xato:', err.message));
+process.on('unhandledRejection', (reason) => console.log('Unhandled Rejection:', reason));
 
-// Start
 startAllBots();
 
-// Railway uchun xizmat ko'rsatuvchi server
-http.createServer((req, res) => { res.end("Articraft Bot System Active"); }).listen(process.env.PORT || 8080);
+http.createServer((req, res) => { res.end("System Online"); }).listen(process.env.PORT || 8080);
