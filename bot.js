@@ -8,17 +8,19 @@ const BOTS_CONFIG = [
   { id: 'bot4', username: 'dffhggfgd',         password: 'shukrona' },
 ];
 
-const SERVER = { host: '92.63.189.147', port: 25565, version: '1.21' };
+// Versiyani avtomatik aniqlashi uchun 'version' olib tashlandi
+const SERVER = { host: '92.63.189.147', port: 25565 }; 
 const HOSTILE_MOBS = ['zombie','skeleton','spider','cave_spider','creeper','witch',
   'enderman','blaze','slime','phantom','drowned','husk','stray','pillager','vindicator'];
 
 let bots = {};
 let logs = [];
 let clients = [];
-
-// Har bot uchun holat
 const state = {};
-BOTS_CONFIG.forEach(c => { state[c.id] = { moving: false, fighting: false, loggedIn: false }; });
+
+BOTS_CONFIG.forEach(c => { 
+    state[c.id] = { moving: false, fighting: false, loggedIn: false }; 
+});
 
 const LABELS = { bot1:'[BOT-1]', bot2:'[BOT-2]', bot3:'[BOT-3]', bot4:'[BOT-4]' };
 
@@ -32,14 +34,13 @@ function addLog(id, msg) {
 
 // ── Web server ─────────────────────────────────────────────────
 const server = http.createServer((req, res) => {
-
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, {'Content-Type':'text/html;charset=utf-8'});
     res.end(`<!DOCTYPE html>
 <html lang="uz">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Articraft Bot</title>
+<title>Articraft Bot Control</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0f0f1a;color:#e0e0e0;font-family:'Segoe UI',sans-serif}
@@ -76,9 +77,8 @@ input:focus{border-color:#4ade80}
 </style>
 </head>
 <body>
-<header><h1>🤖 Articraft Botlar</h1><div class="dot"></div></header>
+<header><h1>🤖 Articraft Bot Manager</h1><div class="dot"></div></header>
 <div class="wrap">
-
   <div class="card">
     <div class="ct">Loglar</div>
     <div class="badges">
@@ -89,7 +89,6 @@ input:focus{border-color:#4ade80}
     </div>
     <div id="log-box"></div>
   </div>
-
   <div class="card">
     <div class="ct">Bot tanlash</div>
     <div class="sel-row">
@@ -100,7 +99,6 @@ input:focus{border-color:#4ade80}
       <button id="sA" onclick="sel('all')">HAMMASI</button>
     </div>
   </div>
-
   <div class="card">
     <div class="ct">Harakat va Jangovar</div>
     <div class="btn-grid">
@@ -110,7 +108,6 @@ input:focus{border-color:#4ade80}
       <button class="btn btn-red"    onclick="toggle('fight','off')">🛑 Urish OFF</button>
     </div>
   </div>
-
   <div class="card">
     <div class="ct">Server buyruqlari</div>
     <div class="btn-grid">
@@ -120,7 +117,6 @@ input:focus{border-color:#4ade80}
       <button class="btn btn-gray"   onclick="cmd('/afk')">AFK</button>
     </div>
   </div>
-
   <div class="card">
     <div class="ct">Buyruq / Chat yozish</div>
     <div class="cmd-row">
@@ -129,14 +125,12 @@ input:focus{border-color:#4ade80}
     </div>
     <div id="status"></div>
   </div>
-
 </div>
 <script>
 const box = document.getElementById('log-box');
 let cur = 'bot1';
 function sel(id) {
   cur = id;
-  ['s1','s2','s3','s4','sA'].forEach(s => document.getElementById(s).className = 'sel-row button'.split(' ')[1] ? '' : '');
   document.querySelectorAll('.sel-row button').forEach(b => b.classList.remove('active'));
   const m = {bot1:'s1',bot2:'s2',bot3:'s3',bot4:'s4',all:'sA'};
   document.getElementById(m[id]).classList.add('active');
@@ -175,13 +169,11 @@ function sendInp() {
 document.getElementById('inp').addEventListener('keydown', e => { if(e.key==='Enter') sendInp(); });
 </script>
 </body></html>`);
-
   } else if (req.method === 'GET' && req.url === '/logs') {
     res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});
     logs.forEach(l => res.write(`data: ${JSON.stringify(l)}\n\n`));
     clients.push(res);
     req.on('close', () => { clients = clients.filter(c => c !== res); });
-
   } else if (req.method === 'POST' && req.url === '/command') {
     let body = '';
     req.on('data', d => body += d);
@@ -189,18 +181,15 @@ document.getElementById('inp').addEventListener('keydown', e => { if(e.key==='En
       let sent = 0, failed = [];
       try {
         const { cmd, bot: target } = JSON.parse(body);
-        if (cmd) {
-          const targets = target === 'all' ? Object.keys(bots) : [target];
-          targets.forEach(id => {
-            if (bots[id]) { bots[id].chat(cmd); addLog(id, `[SIZ] ${cmd}`); sent++; }
-            else { failed.push(id); addLog(id, '[XATO] Bot ulanmagan'); }
-          });
-        }
+        const targets = target === 'all' ? Object.keys(bots) : [target];
+        targets.forEach(id => {
+          if (bots[id]) { bots[id].chat(cmd); addLog(id, `[SIZ] ${cmd}`); sent++; }
+          else { failed.push(id); addLog(id, '[XATO] Bot ulanmagan'); }
+        });
       } catch(e) {}
       res.writeHead(200,{'Content-Type':'application/json'});
       res.end(JSON.stringify({sent, failed}));
     });
-
   } else if (req.method === 'POST' && req.url === '/toggle') {
     let body = '';
     req.on('data', d => body += d);
@@ -213,7 +202,7 @@ document.getElementById('inp').addEventListener('keydown', e => { if(e.key==='En
         targets.forEach(id => {
           if (type === 'move') {
             state[id].moving = on;
-            if (!on && bots[id]) { try { bots[id].setControlState('forward', false); bots[id].setControlState('jump', false); } catch(e) {} }
+            if (!on && bots[id]) { bots[id].setControlState('forward', false); bots[id].setControlState('jump', false); }
             addLog(id, `Yurish ${on ? 'YOQILDI' : 'O\'CHIRILDI'}`);
           } else if (type === 'fight') {
             state[id].fighting = on;
@@ -225,7 +214,6 @@ document.getElementById('inp').addEventListener('keydown', e => { if(e.key==='En
       res.writeHead(200,{'Content-Type':'application/json'});
       res.end(JSON.stringify({message}));
     });
-
   } else {
     res.writeHead(404); res.end();
   }
@@ -240,65 +228,67 @@ function createBot(config) {
   bots[id] = bot;
   addLog(id, `Ulanmoqda: ${username}`);
 
-  // ── Yurish sikli ─────────────────────────
   const moveLoop = setInterval(() => {
     if (!state[id].moving || !bots[id]) return;
     try {
       bot.look(Math.random() * Math.PI * 2, 0, true);
       bot.setControlState('forward', true);
-      setTimeout(() => { try { bot.setControlState('forward', false); } catch(e){} }, 2000);
-      if (Math.random() > 0.6) {
-        bot.setControlState('jump', true);
-        setTimeout(() => { try { bot.setControlState('jump', false); } catch(e){} }, 500);
-      }
+      setTimeout(() => { if(bots[id]) bot.setControlState('forward', false); }, 2000);
     } catch(e) {}
-  }, 12000 + Math.random() * 8000);
+  }, 15000);
 
-  // ── Urish sikli ──────────────────────────
   const fightLoop = setInterval(() => {
     if (!state[id].fighting || !bots[id]) return;
     try {
-      const mob = bot.nearestEntity(e => {
-        if (!e || !e.name) return false;
-        return HOSTILE_MOBS.includes(e.name) && bot.entity.position.distanceTo(e.position) < 5;
-      });
-      if (mob) { bot.lookAt(mob.position.offset(0, mob.height, 0)); bot.attack(mob); addLog(id, `Mob urildi: ${mob.name}`); }
+      const mob = bot.nearestEntity(e => HOSTILE_MOBS.includes(e.name) && bot.entity.position.distanceTo(e.position) < 5);
+      if (mob) { bot.lookAt(mob.position.offset(0, mob.height, 0)); bot.attack(mob); }
     } catch(e) {}
   }, 1000);
 
+  // HAR 1 SOATDA ANARXIYA2 GA O'TISH
+  const hourlyCheck = setInterval(() => {
+    if (bots[id] && state[id].loggedIn) {
+      addLog(id, "Rejali tekshiruv: Anarxiya 2 ga o'tilmoqda...");
+      bot.chat('/server anarxiya2');
+    }
+  }, 3600000);
+
   bot.on('message', (jsonMsg) => {
     const msg = jsonMsg.toString();
-    const isPersonal = msg.includes(username) || msg.includes('ʟᴏɢɪɴ') ||
-      msg.includes('Tizimga kirish') || msg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') ||
-      msg.includes('PlayerPoints') || msg.includes('AFK');
-    if (id === 'bot1' || isPersonal) addLog(id, msg);
+    if (id === 'bot1' || msg.includes(username) || msg.includes('ʟᴏɢɪɴ') || msg.includes('Tizimga kirish')) addLog(id, msg);
 
     if (msg.includes('ʟᴏɢɪɴ') || msg.includes('Tizimga kirish')) {
       bot.chat(`/login ${password}`);
     }
     if (msg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') || msg.includes(username)) {
       state[id].loggedIn = true;
-      setTimeout(() => { bot.chat('/server anarxiya2'); addLog(id, 'Anarxiya 2 ga o\'tildi.'); }, 5000);
+      setTimeout(() => { if(bots[id]) bot.chat('/server anarxiya2'); }, 5000);
     }
   });
 
   bot.on('spawn', () => {
     if (!state[id].loggedIn) return;
-    try { bot.setControlState('forward', false); bot.setControlState('jump', false); } catch(e){}
-    setTimeout(() => { bot.chat('/server anarxiya2'); addLog(id, 'Hub — Anarxiya 2 ga qayta o\'tilmoqda...'); }, 5000);
+    setTimeout(() => { if(bots[id]) bot.chat('/server anarxiya2'); }, 5000);
   });
 
   bot.on('error', (err) => {
     addLog(id, `Xato: ${err.message}`);
-    try { bot.setControlState('forward', false); } catch(e){}
   });
 
   bot.on('end', () => {
-    clearInterval(moveLoop); clearInterval(fightLoop);
+    clearInterval(moveLoop); 
+    clearInterval(fightLoop);
+    clearInterval(hourlyCheck);
     bots[id] = null;
-    addLog(id, 'Uzildi. 5 soniyadan keyin qayta ulanmoqda...');
-    setTimeout(() => createBot(config), 5000);
+    state[id].loggedIn = false;
+    addLog(id, 'Uzildi. 10 soniyadan keyin qayta ulanadi...');
+    setTimeout(() => createBot(config), 10000); // Qayta ulanish ham 10 soniya
   });
 }
 
-BOTS_CONFIG.forEach(config => createBot(config));
+// BOTLARNI KETMA-KET ISHGA TUSHIRISH (ASOSIY TUZATISH)
+BOTS_CONFIG.forEach((config, index) => {
+  setTimeout(() => {
+    createBot(config);
+  }, index * 10000); // 0s, 10s, 20s, 30s da ulanadi
+});
