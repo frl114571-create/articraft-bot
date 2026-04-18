@@ -12,104 +12,120 @@ const BOTS_CONFIG = [
 
 const SERVER = { host: '92.63.189.147', port: 25565 };
 
-// Telegram ma'lumotlarini to'g'ridan-to'g'ri kodga yozdim
+// Telegram ma'lumotlari
 const TG_TOKEN = '8711128717:AAG25f3UB3Vx2x3iCO4OMku9pVOa6_xoN5o'; 
 const ADMIN_ID = 8161736033; 
 
 const tgBot = new TelegramBot(TG_TOKEN, { polling: true });
-let bots = {};
-let globalAllowBots = true;
-const state = {};
-
-BOTS_CONFIG.forEach(c => { state[c.id] = { loggedIn: false }; });
-
-// --- LOG VA TELEGRAM XABAR ---
-function logToTg(msg) {
-  console.log(msg);
-  tgBot.sendMessage(ADMIN_ID, `📝 **Log:** ${msg}`, { parse_mode: 'Markdown' });
-}
+let bots = {}; // Hozirgi bot obyektlari
+let globalAllowBots = true; // Botlarga ulanishga ruxsat
+const loginStatus = {}; // Botlar login bo'lganmi yoki yo'q
 
 // --- TELEGRAM BUYRUQLARI ---
 tgBot.onText(/\/start/, (msg) => {
   if (msg.from.id !== ADMIN_ID) return;
-  tgBot.sendMessage(ADMIN_ID, "🤖 **Articraft Bot Paneliga xush kelibsiz!**\n\n/on - Botlarni yoqish\n/off - Botlarni o'chirish\n/status - Holatni tekshirish", { parse_mode: 'Markdown' });
+  tgBot.sendMessage(ADMIN_ID, "🤖 **Articraft Bot Boshqaruv Paneli**\n\n/on - Botlarni ulaydi (Start)\n/off - Botlarni uzadi (Stop)\n/status - Botlar holatini ko'rish");
 });
 
+// BOTLARNI YOQISH
 tgBot.onText(/\/on/, (msg) => {
   if (msg.from.id !== ADMIN_ID) return;
   globalAllowBots = true;
-  tgBot.sendMessage(ADMIN_ID, "✅ **Botlar ishga tushirilmoqda...**");
+  tgBot.sendMessage(ADMIN_ID, "✅ Botlarni ulash jarayoni boshlandi. Har bir bot 10 soniya farq bilan kiradi...");
   startAllBots();
 });
 
+// BOTLARNI O'CHIRISH
 tgBot.onText(/\/off/, (msg) => {
   if (msg.from.id !== ADMIN_ID) return;
   globalAllowBots = false;
+  
   Object.keys(bots).forEach(id => {
     if (bots[id]) {
-      bots[id].quit();
+      bots[id].quit(); // O'yindan chiqarish
       bots[id] = null;
     }
+    loginStatus[id] = false;
   });
-  tgBot.sendMessage(ADMIN_ID, "🛑 **Hamma botlar o'yindan chiqarildi.**");
+  
+  tgBot.sendMessage(ADMIN_ID, "🛑 Hamma botlar o'yindan chiqarildi va avtomatik ulanish to'xtatildi.");
 });
 
+// HOLATNI TEKSHIRISH
 tgBot.onText(/\/status/, (msg) => {
   if (msg.from.id !== ADMIN_ID) return;
-  let statusMsg = globalAllowBots ? "🟢 **Tizim: ON**\n\n" : "🔴 **Tizim: OFF**\n\n";
+  
+  let report = globalAllowBots ? "🟢 **Tizim: ISHLAYAPTI**\n\n" : "🔴 **Tizim: TO'XTATILGAN**\n\n";
+  
   BOTS_CONFIG.forEach(c => {
-    statusMsg += `👤 ${c.username}: ${bots[c.id] ? '✅ Online' : '❌ Offline'}\n`;
+    const isOnline = bots[c.id] ? "✅ Online" : "❌ Offline";
+    const isLogged = loginStatus[c.id] ? "(Login bo'lgan)" : "(Kirish kutilmoqda)";
+    report += `👤 ${c.username}: ${isOnline} ${isLogged}\n`;
   });
-  tgBot.sendMessage(ADMIN_ID, statusMsg, { parse_mode: 'Markdown' });
+  
+  tgBot.sendMessage(ADMIN_ID, report, { parse_mode: 'Markdown' });
 });
 
-// --- MINECRAFT BOT LOGIKASI ---
+// --- ASOSIY BOT FUNKSIYASI ---
 function createBot(config) {
+  // Agar foydalanuvchi OFF qilgan bo'lsa, ulanishni taqiqlash
   if (!globalAllowBots) return;
 
   const { id, username, password } = config;
-  
-  // Eski botni tozalash
-  if (bots[id]) { try { bots[id].quit(); } catch(e) {} }
 
+  // Eski ulanish mavjud bo'lsa tozalash
+  if (bots[id]) {
+    try { bots[id].quit(); } catch(e) {}
+    bots[id] = null;
+  }
+
+  console.log(`[${username}] Ulanishga harakat qilinmoqda...`);
   const bot = mineflayer.createBot({ ...SERVER, username });
   bots[id] = bot;
+  loginStatus[id] = false;
 
-  bot.on('message', (jsonMsg) => {
-    const msg = jsonMsg.toString();
-    
-    // Login qilish
-    if (msg.includes('ʟᴏɢɪɴ') || msg.includes('Tizimga kirish')) {
-      bot.chat(`/login ${password}`);
-    }
-    
-    // Muvaffaqiyatli kirsa Anarxiya2 ga o'tish
-    if (msg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') || msg.includes(username)) {
-      state[id].loggedIn = true;
-      setTimeout(() => { if(bots[id]) bot.chat('/server anarxiya2'); }, 5000);
-    }
-  });
-
-  // Har 1 soatda Hubdan Anarxiya2 ga o'tkazish
-  const hourlyCheck = setInterval(() => {
-    if (bots[id] && state[id].loggedIn) {
+  // Har 1 soatda Anarxiya2 ga o'tkazish taymeri
+  const hourlyTimer = setInterval(() => {
+    if (bots[id] && loginStatus[id]) {
       bot.chat('/server anarxiya2');
     }
   }, 3600000);
 
-  bot.on('spawn', () => {
-    if (state[id].loggedIn) {
-      setTimeout(() => { if(bots[id]) bot.chat('/server anarxiya2'); }, 5000);
+  bot.on('message', (jsonMsg) => {
+    const msg = jsonMsg.toString();
+    
+    // Login qilish (Agar login so'rasa)
+    if (msg.includes('ʟᴏɢɪɴ') || msg.includes('Tizimga kirish') || msg.includes('/login')) {
+      bot.chat(`/login ${password}`);
+    }
+
+    // Login bo'lgandan keyin serverga o'tish
+    if (msg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') || msg.includes('muvaffaqiyatli kirdingiz') || msg.includes(username)) {
+      loginStatus[id] = true;
+      setTimeout(() => { if (bots[id]) bot.chat('/server anarxiya2'); }, 5000);
     }
   });
 
-  bot.on('error', (err) => console.log(`[${username}] Xato: ${err.message}`));
+  bot.on('spawn', () => {
+    // Agar bot spawn bo'lsa (o'lsa yoki server almashsa)
+    if (loginStatus[id]) {
+      setTimeout(() => { if (bots[id]) bot.chat('/server anarxiya2'); }, 5000);
+    }
+  });
+
+  bot.on('error', (err) => {
+    console.log(`[${username}] Xatolik: ${err.message}`);
+  });
 
   bot.on('end', () => {
-    clearInterval(hourlyCheck);
+    console.log(`[${username}] Serverdan uzildi.`);
+    clearInterval(hourlyTimer);
     bots[id] = null;
-    state[id].loggedIn = false;
+    loginStatus[id] = false;
+
+    // Faqat agar foydalanuvchi OFF qilmagan bo'lsa qayta ulanish
     if (globalAllowBots) {
+      console.log(`[${username}] 15 soniyadan keyin qayta ulanadi...`);
       setTimeout(() => createBot(config), 15000);
     }
   });
@@ -119,15 +135,15 @@ function startAllBots() {
   BOTS_CONFIG.forEach((config, index) => {
     setTimeout(() => {
       if (globalAllowBots) createBot(config);
-    }, index * 10000); // 10 soniya farq bilan ulanish
+    }, index * 12000); // 12 soniya farq bilan (Server bloklamasligi uchun)
   });
 }
 
-// Skript yonganda botlarni boshlash
+// Skript birinchi marta yurganda botlarni yoqish
 startAllBots();
 
-// --- RAILWAY UCHUN WEB SERVER ---
+// Railway o'chib qolmasligi uchun kichik server
 http.createServer((req, res) => {
   res.writeHead(200);
-  res.end("Botlar Telegram orqali boshqarilmoqda...");
+  res.end("Botlar Telegram orqali boshqarilmoqda.");
 }).listen(process.env.PORT || 8080);
