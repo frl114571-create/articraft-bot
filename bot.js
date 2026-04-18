@@ -18,7 +18,7 @@ const tgBot = new TelegramBot(TG_TOKEN, { polling: true });
 let bots = {}; 
 let globalAllowBots = true;
 const loginStatus = {};
-const userState = {}; // Foydalanuvchi qaysi botga buyruq yozayotganini saqlash uchun
+const userState = {};
 
 // --- TELEGRAM ASOSIY MENYU ---
 tgBot.onText(/\/start/, (msg) => {
@@ -32,10 +32,10 @@ tgBot.onText(/\/start/, (msg) => {
       ]
     }
   };
-  tgBot.sendMessage(ADMIN_ID, "🎮 **Articraft Master Control Panel**\nBuyruq yuborish uchun botni tanlang:", opts);
+  tgBot.sendMessage(ADMIN_ID, "🎮 **Articraft Master Control Panel**", opts);
 });
 
-// --- TUGMALARNI QABUL QILISH ---
+// --- CALLBACK QUERY ISHLOVCHI ---
 tgBot.on('callback_query', async (query) => {
   const data = query.data;
   const chatId = query.message.chat.id;
@@ -48,18 +48,19 @@ tgBot.on('callback_query', async (query) => {
   else if (data === 'all_off') {
     globalAllowBots = false;
     Object.keys(bots).forEach(id => stopBot(id));
-    tgBot.answerCallbackQuery(query.id, { text: "Hamma botlar uzildi." });
+    tgBot.answerCallbackQuery(query.id, { text: "Barcha botlar o'chirildi." });
   }
   else if (data === 'status') {
     let txt = "📊 **Botlar holati:**\n\n";
     BOTS_CONFIG.forEach(c => {
-      txt += `${bots[c.id] ? '✅' : '❌'} ${c.username} ${loginStatus[c.id] ? '(Login)' : '(Hub)'}\n`;
+      const isOnline = (bots[c.id] && bots[c.id].entity) ? "✅ Online" : "❌ Offline";
+      txt += `${isOnline} **${c.username}**\n`;
     });
-    tgBot.sendMessage(chatId, txt);
+    tgBot.sendMessage(chatId, txt, { parse_mode: 'Markdown' });
   }
   else if (data === 'manage_bots') {
     const buttons = BOTS_CONFIG.map(c => [{ text: `👤 ${c.username}`, callback_data: `bot_menu_${c.id}` }]);
-    tgBot.sendMessage(chatId, "Qaysi botni boshqarmoqchisiz?", { reply_markup: { inline_keyboard: buttons } });
+    tgBot.sendMessage(chatId, "Boshqarish uchun botni tanlang:", { reply_markup: { inline_keyboard: buttons } });
   }
   else if (data.startsWith('bot_menu_')) {
     const botId = data.replace('bot_menu_', '');
@@ -67,77 +68,81 @@ tgBot.on('callback_query', async (query) => {
   }
   else if (data.startsWith('srv_')) {
     const [_, botId, srvName] = data.split('_');
-    if (bots[botId]) {
+    if (bots[botId] && bots[botId].entity) {
       bots[botId].chat(`/server ${srvName}`);
-      tgBot.answerCallbackQuery(query.id, { text: `O'tilmoqda: ${srvName}` });
-    } else tgBot.answerCallbackQuery(query.id, { text: "Bot o'yinda emas!", show_alert: true });
+      tgBot.answerCallbackQuery(query.id, { text: `${srvName} ga o'tilmoqda...` });
+    } else {
+      tgBot.answerCallbackQuery(query.id, { text: "Xato: Bot o'yinda emas!", show_alert: true });
+    }
   }
   else if (data.startsWith('cmd_')) {
     const botId = data.replace('cmd_', '');
     userState[chatId] = { action: 'await_command', targetBot: botId };
-    tgBot.sendMessage(chatId, `✍️ **${BOTS_CONFIG.find(b => b.id === botId).username}** uchun buyruqni yozing:\n(Masalan: /afk, /spawn, Salom xammaga)`);
+    tgBot.sendMessage(chatId, `✍️ **${BOTS_CONFIG.find(b => b.id === botId).username}** uchun buyruq yozing:`);
   }
   else if (data.startsWith('in_')) {
     const botId = data.replace('in_', '');
     createBot(BOTS_CONFIG.find(c => c.id === botId));
-    tgBot.answerCallbackQuery(query.id, { text: "Bot ulanmoqda..." });
+    tgBot.answerCallbackQuery(query.id, { text: "Ulanmoqda..." });
   }
   else if (data.startsWith('out_')) {
     const botId = data.replace('out_', '');
     stopBot(botId);
-    tgBot.answerCallbackQuery(query.id, { text: "Bot o'yindan chiqarildi." });
+    tgBot.answerCallbackQuery(query.id, { text: "Bot uzildi." });
   }
 });
 
-// --- CHAT XABARLARINI TUTIB OLISH (BUYRUQ YOZISH UCHUN) ---
+// --- CHAT XABARLARINI TUTIB OLISH ---
 tgBot.on('message', (msg) => {
   const chatId = msg.chat.id;
   if (userState[chatId] && userState[chatId].action === 'await_command') {
     const botId = userState[chatId].targetBot;
-    const command = msg.text;
-
-    if (bots[botId]) {
-      bots[botId].chat(command);
-      tgBot.sendMessage(chatId, `✅ **${BOTS_CONFIG.find(b => b.id === botId).username}**: "${command}" buyrug'i yuborildi.`);
+    if (bots[botId] && bots[botId].entity) {
+      bots[botId].chat(msg.text);
+      tgBot.sendMessage(chatId, `✅ Yuborildi: ${msg.text}`);
     } else {
-      tgBot.sendMessage(chatId, "❌ Xato: Bot o'yindan chiqib ketgan.");
+      tgBot.sendMessage(chatId, "❌ Bot o'yinda emas!");
     }
-    delete userState[chatId]; // Buyruq yuborilgach holatni o'chirish
+    delete userState[chatId];
   }
 });
 
+// --- MENYU FUNKSIYASI ---
 function showBotMenu(chatId, botId) {
   const config = BOTS_CONFIG.find(c => c.id === botId);
   const botMenu = {
     reply_markup: {
       inline_keyboard: [
-        [{ text: "🌐 Anarxiya", callback_data: `srv_${botId}_anarxiya` }, { text: "🌐 Anarxiya 2", callback_data: `srv_${botId}_anarxiya2` }],
-        [{ text: "🌐 SMP", callback_data: `srv_${botId}_smp` }, { text: "🏠 Hub", callback_data: `srv_${botId}_hub` }],
+        [{ text: "Anarxiya", callback_data: `srv_${botId}_anarxiya` }, { text: "Anarxiya 2", callback_data: `srv_${botId}_anarxiya2` }],
+        [{ text: "SMP", callback_data: `srv_${botId}_smp` }, { text: "Hub", callback_data: `srv_${botId}_hub` }],
         [{ text: "✍️ Buyruq yozish", callback_data: `cmd_${botId}` }],
         [{ text: "🚀 Kirish", callback_data: `in_${botId}` }, { text: "🚪 Chiqish", callback_data: `out_${botId}` }],
         [{ text: "⬅️ Orqaga", callback_data: 'manage_bots' }]
       ]
     }
   };
-  tgBot.sendMessage(chatId, `🤖 **Bot: ${config.username}**\nBoshqaruv menyusi:`, botMenu);
+  tgBot.sendMessage(chatId, `🤖 **Bot: ${config.username}**`, botMenu);
 }
 
-// --- MINECRAFT BOT LOGIKASI ---
+// --- MINECRAFT BOT LOGIKASI (MUHIM TUZATISHLAR) ---
 function stopBot(id) {
-  if (bots[id]) { try { bots[id].quit(); } catch(e) {} bots[id] = null; }
+  if (bots[id]) {
+    try { bots[id].quit(); } catch(e) {}
+    delete bots[id]; // Obyektni butunlay o'chirish
+  }
   loginStatus[id] = false;
 }
 
 function createBot(config) {
+  if (!globalAllowBots) return;
   const { id, username, password } = config;
+
   if (bots[id]) stopBot(id);
 
   const bot = mineflayer.createBot({ ...SERVER, username });
+  
+  // Bot obyektini darhol ro'yxatga qo'shish
   bots[id] = bot;
-
-  const timer = setInterval(() => {
-    if (bots[id] && loginStatus[id]) bot.chat('/server anarxiya2');
-  }, 3600000);
 
   bot.on('message', (json) => {
     const msg = json.toString();
@@ -149,13 +154,15 @@ function createBot(config) {
   });
 
   bot.on('end', () => {
-    clearInterval(timer);
-    bots[id] = null;
+    delete bots[id]; // Uzilganda o'chirish
     loginStatus[id] = false;
     if (globalAllowBots) setTimeout(() => createBot(config), 15000);
   });
 
-  bot.on('error', (err) => console.log(`[${username}] Error: ${err.message}`));
+  bot.on('error', (err) => {
+    console.log(`[${username}] Xato: ${err.message}`);
+    delete bots[id];
+  });
 }
 
 function startAllBots() {
@@ -164,6 +171,8 @@ function startAllBots() {
   });
 }
 
+// Avtomatik boshlash
 startAllBots();
 
-http.createServer((req, res) => { res.writeHead(200); res.end("Ready"); }).listen(process.env.PORT || 8080);
+// Railway uchun server
+http.createServer((req, res) => { res.end("OK"); }).listen(process.env.PORT || 8080);
