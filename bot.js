@@ -13,7 +13,7 @@ const BOTS_CONFIG = [
 const SERVER = { host: '92.63.189.147', port: 25565 };
 
 // YANGI TOKENINGIZNI SHU YERGA QO'YDIM
-const TG_TOKEN = '8711128717:AAF8ev4By3F9DCPIMPYNDZ09Rwl4x6puwwI'; 
+const TG_TOKEN = '8711128717:AAF8ev4By3F9DCPIMPYNDZ09Rwl4x6puwwI';
 const ADMIN_ID = 8161736033; 
 
 const tgBot = new TelegramBot(TG_TOKEN, { polling: true });
