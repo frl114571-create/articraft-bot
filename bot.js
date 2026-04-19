@@ -3,9 +3,14 @@ const mineflayer = require('mineflayer');
 const TelegramBot = require('node-telegram-bot-api');
 
 // --- SOZLAMALAR ---
-const TG_TOKEN = '8679302878:AAESHvbJmJLsbqxSRKYcansnkCzY_fnGA-4'; 
-const ADMIN_ID = 8161736033; 
-const SERVER = { host: '92.63.189.147', port: 25565, version: '1.18.2' }; 
+// Railway Variables'dan oladi, bo'sh bo'lsa yangi tokeningizni ishlatadi
+const TG_TOKEN = process.env.TG_TOKEN || '8710300006:AAFgfl_EAOaqHB0KItrxo3Lqp-N7ZtiFlRw'; 
+const ADMIN_ID = parseInt(process.env.ADMIN_ID) || 8161736033; 
+const SERVER = { 
+    host: process.env.MC_HOST || '92.63.189.147', 
+    port: 25565, 
+    version: '1.18.2' 
+}; 
 
 const BOTS_CONFIG = [
   { id: 'bot1', username: 'zahridinafk_emas', password: 'shukrona' },
@@ -24,13 +29,13 @@ function log(botName, message) {
     console.log(`[${time}] [${botName}] ${message}`);
 }
 
-// --- TELEGRAM PANEL MENYULARI ---
+// --- TELEGRAM PANEL ---
 function getMainMenu() {
     return {
         reply_markup: {
             inline_keyboard: [
                 [{ text: "🚀 Hammasini Yoqish", callback_data: 'all_on' }, { text: "🛑 Hammasini O'chirish", callback_data: 'all_off' }],
-                [{ text: "📊 Botlar Statusi", callback_data: 'status' }],
+                [{ text: "📊 Status", callback_data: 'status' }],
                 [{ text: "🎮 Har birini boshqarish", callback_data: 'list' }]
             ]
         }
@@ -39,7 +44,7 @@ function getMainMenu() {
 
 tgBot.onText(/\/start/, (msg) => {
     if (msg.from.id !== ADMIN_ID) return;
-    tgBot.sendMessage(ADMIN_ID, "🛡 **VortexCraft Ideal Boshqaruv Paneli**\nBotlar avtomatik ishga tushgan.", getMainMenu());
+    tgBot.sendMessage(ADMIN_ID, "🛡 **VortexCraft Ideal Cloud Panel**\n\nBotlar avtomatik ulanmoqda...", getMainMenu());
 });
 
 tgBot.on('callback_query', (query) => {
@@ -49,15 +54,15 @@ tgBot.on('callback_query', (query) => {
     if (data === 'all_on') {
         globalAllowBots = true;
         BOTS_CONFIG.forEach((c, i) => setTimeout(() => createBot(c), i * 15000));
-        tgBot.answerCallbackQuery(query.id, { text: "Botlar ulanmoqda..." });
+        tgBot.answerCallbackQuery(query.id, { text: "Botlar navbat bilan kiritilmoqda..." });
     } 
     else if (data === 'all_off') {
         globalAllowBots = false;
         Object.keys(bots).forEach(id => { try { bots[id].quit(); } catch(e){} delete bots[id]; });
-        tgBot.answerCallbackQuery(query.id, { text: "Barcha botlar o'chirildi." });
+        tgBot.answerCallbackQuery(query.id, { text: "Hamma botlar o'chirildi." });
     }
     else if (data === 'status') {
-        let txt = "🛰 **Tizim holati:**\n\n";
+        let txt = "🛰 **Botlar holati:**\n\n";
         BOTS_CONFIG.forEach(c => {
             const isOnline = (bots[c.id] && bots[c.id].socket && bots[c.id].socket.writable) ? "🟢 Online" : "🔴 Offline";
             txt += `${isOnline} — **${c.username}**\n`;
@@ -66,17 +71,15 @@ tgBot.on('callback_query', (query) => {
     }
     else if (data === 'list') {
         const btns = BOTS_CONFIG.map(c => [{ text: `🤖 ${c.username}`, callback_data: `manage_${c.id}` }]);
-        tgBot.sendMessage(chatId, "Boshqarish uchun botni tanlang:", { reply_markup: { inline_keyboard: btns } });
+        tgBot.sendMessage(chatId, "Boshqarish uchun tanlang:", { reply_markup: { inline_keyboard: btns } });
     }
     else if (data.startsWith('manage_')) {
         const botId = data.replace('manage_', '');
-        const config = BOTS_CONFIG.find(b => b.id === botId);
-        tgBot.sendMessage(chatId, `🎮 **${config.username}** boshqaruvi:`, {
+        tgBot.sendMessage(chatId, `🎮 Boshqaruv menyusi:`, {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: "⚔️ Anarxiya 2", callback_data: `go_${botId}_anarxiya2` }, { text: "🏰 Hub", callback_data: `go_${botId}_hub` }],
-                    [{ text: "💬 Buyruq yozish", callback_data: `cmd_${botId}` }],
-                    [{ text: "🔄 Qayta ulanish", callback_data: `reconnect_${botId}` }]
+                    [{ text: "💬 Buyruq", callback_data: `cmd_${botId}` }]
                 ]
             }
         });
@@ -91,7 +94,7 @@ tgBot.on('callback_query', (query) => {
     else if (data.startsWith('cmd_')) {
         const botId = data.replace('cmd_', '');
         userState[chatId] = { action: 'typing', targetBot: botId };
-        tgBot.sendMessage(chatId, `✍️ Buyruqni yozing (masalan: /spawn):`);
+        tgBot.sendMessage(chatId, `✍️ Buyruq yoki xabar yozing:`);
     }
 });
 
@@ -101,7 +104,7 @@ tgBot.on('message', (msg) => {
         const target = bots[userState[chatId].targetBot];
         if (target) target.chat(msg.text);
         delete userState[chatId];
-        tgBot.sendMessage(chatId, "✅ Buyruq bajarildi.");
+        tgBot.sendMessage(chatId, "✅ Yuborildi.");
     }
 });
 
@@ -116,11 +119,11 @@ function createBot(config) {
 
   bots[config.id] = bot;
 
-  // Har 20 daqiqada Anarxiya 2 ga o'tish
+  // Har 20 daqiqada avtomatik o'tkazish
   const autoRedirect = setInterval(() => {
     if (bots[config.id] && bot.socket && bot.socket.writable) {
       bot.chat('/server anarxiya2');
-      log(config.username, "🔄 Auto-Redirect: Anarxiya 2");
+      log(config.username, "🔄 Auto-Server yuborildi.");
     }
   }, 20 * 60 * 1000);
 
@@ -128,18 +131,14 @@ function createBot(config) {
     const rawMsg = json.toString();
     const msg = rawMsg.toLowerCase();
     
-    // Terminalda hamma narsani ko'rish
     console.log(`  > ${config.username}: ${rawMsg}`);
 
-    // Login va Avtomatik /server anarxiya2
     if (msg.includes('/login') || msg.includes('ʟᴏɢɪɴ') || msg.includes('parol')) {
         bot.chat(`/login ${config.password}`);
         log(config.username, "🔑 Login qilindi.");
     }
     
-    // Serverga kirganda (center xabarini ham taniydi)
     if (msg.includes('xush kelibsiz') || msg.includes('welcome') || msg.includes('center')) {
-        log(config.username, "🔓 Kirish muvaffaqiyatli! 5 soniyadan keyin Anarxiya 2 ga o'tadi...");
         setTimeout(() => {
             if (bots[config.id]) bot.chat('/server anarxiya2');
         }, 5000);
@@ -154,8 +153,17 @@ function createBot(config) {
   });
 }
 
-// --- AVTOMATIK START ---
-console.log("=== VORTEXCRAFT ADMIN CONSOLE STARTED ===");
+// --- START ---
 BOTS_CONFIG.forEach((c, i) => setTimeout(() => createBot(c), i * 15000));
 
-http.createServer((req, res) => { res.end("System Ideal Online"); }).listen(process.env.PORT || 8080);
+// --- POLLING ERROR HANDLER & SERVER ---
+tgBot.on('polling_error', (err) => {
+    if (err.message.includes('409 Conflict')) {
+        console.log("⚠️ 409 Conflict: Bot boshqa joyda ochiq. Railway ulanishni kutmoqda...");
+    }
+});
+
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("Bot is Active with New Token");
+}).listen(process.env.PORT || 8080);
