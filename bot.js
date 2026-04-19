@@ -1,11 +1,9 @@
 const http = require('http');
 const mineflayer = require('mineflayer');
-const TelegramBot = require('node-telegram-bot-api');
 
-// --- SOZLAMALAR ---
-const TG_TOKEN = process.env.TG_TOKEN || '8710360006:AAFgfl_EAOaqHB0KItrxo3Lqp-N7ZtiFlRw'; 
+// --- SERVER SOZLAMALARI ---
 const SERVER = { 
-    host: process.env.MC_HOST || '92.63.189.147', 
+    host: '92.63.189.147', 
     port: 25565, 
     version: '1.18.2' 
 }; 
@@ -17,132 +15,78 @@ const BOTS_CONFIG = [
   { id: 'bot4', username: 'dffhggfgd',         password: 'shukrona' },
 ];
 
-const tgBot = new TelegramBot(TG_TOKEN, { polling: true });
-let bots = {}; 
-let globalAllowBots = true;
-const userState = {};
+let bots = {};
 
-// --- ASOSIY MENYU ---
-function getMainMenu() {
-    return {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: "🚀 Hammasini Yoqish", callback_data: 'all_on' }, { text: "🛑 Hammasini O'chirish", callback_data: 'all_off' }],
-                [{ text: "📊 Statusni Ko'rish", callback_data: 'status' }],
-                [{ text: "🎮 Botlar Ro'yxati", callback_data: 'list' }]
-            ]
-        }
-    };
+function log(botName, message) {
+    const time = new Date().toLocaleTimeString();
+    console.log(`[${time}] [${botName}] ${message}`);
 }
 
-// --- TELEGRAM LOGIKASI (HAMMA UCHUN OCHIQ) ---
-tgBot.onText(/\/start/, (msg) => {
-    // ID tekshiruvi olib tashlandi
-    tgBot.sendMessage(msg.chat.id, "🌐 **VortexCraft | Ommaviy Panel**\nBarcha foydalanuvchilar boshqara oladi.", getMainMenu());
-});
-
-tgBot.on('callback_query', (query) => {
-    const data = query.data;
-    const chatId = query.message.chat.id;
-
-    if (data === 'all_on') {
-        globalAllowBots = true;
-        BOTS_CONFIG.forEach((c, i) => setTimeout(() => createBot(c), i * 10000));
-        tgBot.answerCallbackQuery(query.id, { text: "Botlar yoqilmoqda..." });
-    } 
-    else if (data === 'all_off') {
-        globalAllowBots = false;
-        Object.keys(bots).forEach(id => { try { bots[id].quit(); } catch(e){} delete bots[id]; });
-        tgBot.answerCallbackQuery(query.id, { text: "To'xtatildi." });
-    }
-    else if (data === 'status') {
-        let txt = "🛰 **Botlar holati:**\n\n";
-        BOTS_CONFIG.forEach(c => {
-            const isOnline = (bots[c.id] && bots[c.id].socket && bots[c.id].socket.writable) ? "🟢 Online" : "🔴 Offline";
-            txt += `${isOnline} — **${c.username}**\n`;
-        });
-        tgBot.sendMessage(chatId, txt, { parse_mode: 'Markdown' });
-        tgBot.answerCallbackQuery(query.id);
-    }
-    else if (data === 'list') {
-        const btns = BOTS_CONFIG.map(c => [{ text: `🤖 ${c.username}`, callback_data: `manage_${c.id}` }]);
-        tgBot.sendMessage(chatId, "Botni tanlang:", { reply_markup: { inline_keyboard: btns } });
-        tgBot.answerCallbackQuery(query.id);
-    }
-    else if (data.startsWith('manage_')) {
-        const botId = data.replace('manage_', '');
-        tgBot.sendMessage(chatId, `🎮 Boshqaruv:`, {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "⚔️ Anarxiya 2", callback_data: `go_${botId}_anarxiya2` }, { text: "🏰 Hub", callback_data: `go_${botId}_hub` }],
-                    [{ text: "💬 Buyruq", callback_data: `cmd_${botId}` }]
-                ]
-            }
-        });
-        tgBot.answerCallbackQuery(query.id);
-    }
-    else if (data.startsWith('go_')) {
-        const [_, id, srv] = data.split('_');
-        if (bots[id]) {
-            bots[id].chat(`/server ${srv}`);
-            tgBot.answerCallbackQuery(query.id, { text: "Buyruq yuborildi." });
-        }
-    }
-    else if (data.startsWith('cmd_')) {
-        const botId = data.replace('cmd_', '');
-        userState[chatId] = { action: 'typing', targetBot: botId };
-        tgBot.sendMessage(chatId, `✍️ Buyruq yozing:`);
-        tgBot.answerCallbackQuery(query.id);
-    }
-});
-
-tgBot.on('message', (msg) => {
-    const chatId = msg.chat.id;
-    if (userState[chatId] && userState[chatId].action === 'typing' && msg.text !== '/start') {
-        const target = bots[userState[chatId].targetBot];
-        if (target) {
-            target.chat(msg.text);
-            tgBot.sendMessage(chatId, "✅ Yuborildi.");
-        }
-        delete userState[chatId];
-    }
-});
-
-// --- MINECRAFT BOT ---
 function createBot(config) {
-  if (!globalAllowBots) return;
-  if (bots[config.id]) { try { bots[config.id].quit(); } catch(e){} }
-
-  const bot = mineflayer.createBot({
-    host: SERVER.host, port: SERVER.port, username: config.username, version: SERVER.version
-  });
-
-  bots[config.id] = bot;
-
-  bot.on('message', (json) => {
-    const rawMsg = json.toString();
-    const msg = rawMsg.toLowerCase();
+    log(config.username, "🚀 Serverga ulanmoqda...");
     
-    if (msg.includes('/login') || msg.includes('ʟᴏɢɪɴ') || msg.includes('parol')) {
-        bot.chat(`/login ${config.password}`);
-    }
-    
-    if (msg.includes('xush kelibsiz') || msg.includes('welcome') || msg.includes('center')) {
-        setTimeout(() => { if (bots[config.id]) bot.chat('/server anarxiya2'); }, 5000);
-    }
-  });
+    const bot = mineflayer.createBot({
+        host: SERVER.host,
+        port: SERVER.port,
+        username: config.username,
+        version: SERVER.version
+    });
 
-  bot.on('end', () => {
-    delete bots[config.id];
-    if (globalAllowBots) setTimeout(() => createBot(config), 20000);
-  });
+    bots[config.id] = bot;
+
+    // HAR 5 DAQIQADA AVTOMATIK BUYRUQ
+    const afkInterval = setInterval(() => {
+        if (bot && bot.socket && bot.socket.writable) {
+            bot.chat('/server anarxiya2');
+            log(config.username, "🔄 5 daqiqalik avto-o'tish yuborildi.");
+        }
+    }, 5 * 60 * 1000); // 5 daqiqa
+
+    bot.on('message', (json) => {
+        const rawMsg = json.toString();
+        const msg = rawMsg.toLowerCase();
+
+        // Login qilish
+        if (msg.includes('/login') || msg.includes('ʟᴏɢɪɴ') || msg.includes('parol')) {
+            bot.chat(`/login ${config.password}`);
+            log(config.username, "🔑 Login qilindi.");
+        }
+
+        // Kirish bilan Anarxiya2 ga o'tish va bildirishnoma yuborish
+        if (msg.includes('muvaffaqiyatli') || msg.includes('xush kelibsiz') || msg.includes('welcome') || msg.includes('center')) {
+            setTimeout(() => {
+                if (bot && bot.socket && bot.socket.writable) {
+                    bot.chat('/server anarxiya2');
+                    bot.chat('/msg ItzZahridin____ men kirdim');
+                    bot.chat('/msg boltavoy1 men kirdim');
+                    log(config.username, "🏰 Anarxiya 2 ga o'tildi va bildirishnomalar yuborildi.");
+                }
+            }, 3000); // 3 soniya kutib keyin o'tadi
+        }
+    });
+
+    bot.on('error', (err) => log(config.username, `❌ Xato: ${err.message}`));
+
+    bot.on('end', (reason) => {
+        log(config.username, `🔌 Serverdan chiqdi (${reason}). 10 soniyadan keyin qayta kiradi...`);
+        clearInterval(afkInterval);
+        delete bots[config.id];
+        // 10 soniyadan keyin qayta ulanish
+        setTimeout(() => createBot(config), 10000);
+    });
 }
 
-// Avto-Redirect har 20 daqiqada
-setInterval(() => {
-    Object.keys(bots).forEach(id => {
-        if (bots[id] && bots[id].socket && bots[id].socket.writable) bots[id].chat('/server anarxiya2');
-    });
-}, 20 * 60 * 1000);
+// --- BOTLARNI ISHGA TUSHIRISH ---
+console.log("==========================================");
+console.log("   VORTEXCRAFT FULL AFK SYSTEM START     ");
+console.log("==========================================");
 
-http.createServer((req, res) => { res.end("Public Vortex OK"); }).listen(process.env.PORT || 8080);
+BOTS_CONFIG.forEach((config, index) => {
+    // Botlar bir vaqtda kirib ban bo'lmasligi uchun 15 soniya farq bilan yoqiladi
+    setTimeout(() => createBot(config), index * 15000);
+});
+
+// Railway o'chib qolmasligi uchun portni band qilamiz
+http.createServer((req, res) => {
+    res.end("AFK Bots are running 24/7");
+}).listen(process.env.PORT || 8080);
