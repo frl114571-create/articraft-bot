@@ -1,110 +1,83 @@
-const http = require('http');
 const mineflayer = require('mineflayer');
 
-const SERVER = { 
-    host: '92.63.189.147', 
-    port: 25565, 
-    version: '1.18.2' 
-}; 
+const serverHost = '92.63.189.147';
+const serverPort = 25565;
 
-const BOTS_CONFIG = [
-  { id: 'bot1', username: 'zahridinafk_emas', password: 'shukrona' },
-  { id: 'bot2', username: 'Zahridin____',      password: 'shukrona' },
-  { id: 'bot3', username: 'Zahridin_unban',    password: 'shukrona' },
-  { id: 'bot4', username: 'dffhggfgd',         password: 'shukrona' },
+const accounts = [
+  { username: 'zahridinafk_emas', password: 'shukrona' },
+  { username: 'Zahridin____',     password: 'shukrona' },
+  { username: 'Zahridin_unban',    password: 'shukrona' },
+  { username: 'dffhggfgd',         password: 'shukrona' }
 ];
 
-let bots = {};
+function startBot(account) {
+    console.log(`[ULANISH] ${account.username} ulanmoqda...`);
 
-function log(botName, message) {
-    console.log(`[${new Date().toLocaleTimeString()}] [${botName}] ${message}`);
-}
-
-function createBot(config) {
-    if (bots[config.id]) return; // Takrorlanishni oldini olish
-
-    log(config.username, "⏳ Navbat kutilmoqda...");
-    
     const bot = mineflayer.createBot({
-        host: SERVER.host,
-        port: SERVER.port,
-        username: config.username,
-        version: SERVER.version,
-        connectTimeout: 60000, // Uzoqroq kutish
-        checkTimeoutInterval: 60000,
-        keepAlive: true // Aloqani ushlab turish
+        host: serverHost,
+        port: serverPort,
+        username: account.username,
+        version: '1.21',
+        hideErrors: true,
+        connectTimeout: 60000,
+        keepAlive: true
     });
 
-    bots[config.id] = bot;
-    let lastChatMessageTime = Date.now();
-
-    // HUB DETECTOR (1 daqiqa jimlik)
-    const hubCheckInterval = setInterval(() => {
-        if (Date.now() - lastChatMessageTime > 60000) {
-            if (bot.socket && bot.socket.writable) {
-                bot.chat('/server anarxiya2');
-                log(config.username, "🕵️ Hubdan anarxiya2 ga o'tilmoqda...");
-                lastChatMessageTime = Date.now(); 
-            }
-        }
-    }, 15000);
-
-    // 5 DAQIQALIK AFK REJIMI
-    const afkInterval = setInterval(() => {
-        if (bot.socket && bot.socket.writable) {
+    // Anarxiya2 ga o'tish funksiyasi
+    const goToAnarchy = () => {
+        if (bot.entity) {
             bot.chat('/server anarxiya2');
+            console.log(`[AUTO-MOVE] ${account.username}: Anarxiya2 buyrug'i yuborildi.`);
         }
-    }, 5 * 60 * 1000);
+    };
 
-    bot.on('login', () => {
-        log(config.username, "✅ Serverga kirdi.");
-        // Kirish bilan harakat qilishdan oldin 5-10 soniya kutish (Anti-bot uchun)
-        setTimeout(() => {
-            if (bot.socket && bot.socket.writable) bot.chat('/server anarxiya2');
-        }, 8000);
-    });
+    // AFK zonaga borish funksiyasi
+    const goToAFKWarp = () => {
+        if (bot.entity) {
+            bot.chat('/warp afk');
+            console.log(`[WARP] ${account.username}: /warp afk buyrug'i yuborildi.`);
+        }
+    };
 
-    bot.on('message', (json) => {
-        const rawMsg = json.toString();
-        const msg = rawMsg.toLowerCase();
-        if (rawMsg.trim().length > 0) lastChatMessageTime = Date.now();
+    bot.on('messagestr', (msg) => {
+        const cleanMsg = msg.trim();
+        
+        // Loglarni ko'rib boramiz
+        if (cleanMsg) console.log(`[${account.username}] ${cleanMsg}`);
 
-        if (msg.includes('/login') || msg.includes('ʟᴏɢɪɴ') || msg.includes('parol')) {
-            // Login buyrug'ini biroz kechiktirib yuborish
-            setTimeout(() => {
-                if (bot.socket && bot.socket.writable) bot.chat(`/login ${config.password}`);
-            }, 3000);
+        // Avtomatik Login
+        if (cleanMsg.includes('/login') || cleanMsg.includes('ʟᴏɢɪɴ') || cleanMsg.includes('Tizimga kirish')) {
+            bot.chat(`/login ${account.password}`);
         }
 
-        if (msg.includes('muvaffaqiyatli') || msg.includes('xush kelibsiz') || msg.includes('welcome')) {
-            setTimeout(() => {
-                if (bot.socket && bot.socket.writable) {
-                    bot.chat('/server anarxiya2');
-                    bot.chat('/msg ItzZahridin____ men kirdim');
-                    bot.chat('/msg boltavoy1 men kirdim');
-                }
-            }, 10000);
+        // Hubda ekanini sezsa, Anarxiya2 ga o'tadi
+        if (cleanMsg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') || cleanMsg.includes('Hub') || cleanMsg.includes('Lobby')) {
+            setTimeout(goToAnarchy, 7000);
         }
     });
 
-    bot.on('error', (err) => {
-        log(config.username, `⚠️ Xato: ${err.message}`);
+    bot.on('spawn', () => {
+        console.log(`[OK] ${account.username} serverda. AFK rejimida.`);
+        
+        // 1. Har 5 daqiqada (300,000 ms) Anarxiya2 ga o'tishni tekshiradi
+        setInterval(goToAnarchy, 300000);
+
+        // 2. Har 3 soatda (10,800,000 ms) AFK zonaga boradi
+        // (3 soat = 3 * 60 * 60 * 1000)
+        setInterval(goToAFKWarp, 10800000);
     });
 
     bot.on('end', (reason) => {
-        log(config.username, `🔌 Uzildi (${reason}). 1 daqiqadan keyin qayta kiradi...`);
-        clearInterval(afkInterval);
-        clearInterval(hubCheckInterval);
-        delete bots[config.id];
-        // Server bloklamasligi uchun qayta ulanish vaqtini 1 daqiqaga oshirdik
-        setTimeout(() => createBot(config), 60000);
+        console.log(`[!] ${account.username} uzildi: ${reason}. 30 soniyadan keyin qayta kiradi...`);
+        setTimeout(() => startBot(account), 30000);
     });
+
+    bot.on('error', (err) => console.log(`[ERR] ${account.username}: ${err.message}`));
 }
 
-// --- BOTLARNI 1 DAQIQA FARQ BILAN YOQISH ---
-console.log("=== VORTEXCRAFT SAFE-MODE ACTIVE ===");
-BOTS_CONFIG.forEach((config, index) => {
-    setTimeout(() => createBot(config), index * 60000); // Har bir bot orasida 1 daqiqa
+// Botlarni NAVBAT bilan (45 soniya farq bilan) kiritish
+accounts.forEach((acc, index) => {
+    setTimeout(() => {
+        startBot(acc);
+    }, index * 45000); 
 });
-
-http.createServer((req, res) => { res.end("Safe AFK Online"); }).listen(process.env.PORT || 8080);
