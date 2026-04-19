@@ -34,17 +34,38 @@ function createBot(config) {
 
     bots[config.id] = bot;
 
-    // HAR 5 DAQIQADA AVTOMATIK BUYRUQ
+    // --- HUBDAN CHIQISH LOGIKASI (1 DAQIQA CHAT JIMGINALIIGI) ---
+    let lastChatMessageTime = Date.now();
+
+    const hubCheckInterval = setInterval(() => {
+        const currentTime = Date.now();
+        // Agar 1 daqiqa (60000 ms) davomida hech qanday chat xabari kelmagan bo'lsa
+        if (currentTime - lastChatMessageTime > 60000) {
+            if (bot && bot.socket && bot.socket.writable) {
+                bot.chat('/server anarxiya2');
+                log(config.username, "🕵️ Hub aniqlandi (chat 1 daqiqa jim edi). Anarxiya2 ga o'tilmoqda...");
+                // Taymerni yangilaymiz, aks holda har soniyada spam qiladi
+                lastChatMessageTime = Date.now(); 
+            }
+        }
+    }, 10000); // Har 10 soniyada tekshiradi
+
+    // --- HAR 5 DAQIQADA AVTOMATIK BUYRUQ ---
     const afkInterval = setInterval(() => {
         if (bot && bot.socket && bot.socket.writable) {
             bot.chat('/server anarxiya2');
-            log(config.username, "🔄 5 daqiqalik avto-o'tish yuborildi.");
+            log(config.username, "🔄 5 daqiqalik majburiy avto-o'tish.");
         }
-    }, 5 * 60 * 1000); // 5 daqiqa
+    }, 5 * 60 * 1000);
 
     bot.on('message', (json) => {
         const rawMsg = json.toString();
         const msg = rawMsg.toLowerCase();
+        
+        // Har qanday xabar kelsa, oxirgi xabar vaqtini yangilaymiz
+        if (rawMsg.trim().length > 0) {
+            lastChatMessageTime = Date.now();
+        }
 
         // Login qilish
         if (msg.includes('/login') || msg.includes('ʟᴏɢɪɴ') || msg.includes('parol')) {
@@ -52,41 +73,34 @@ function createBot(config) {
             log(config.username, "🔑 Login qilindi.");
         }
 
-        // Kirish bilan Anarxiya2 ga o'tish va bildirishnoma yuborish
+        // Kirish bildirishnomalari
         if (msg.includes('muvaffaqiyatli') || msg.includes('xush kelibsiz') || msg.includes('welcome') || msg.includes('center')) {
             setTimeout(() => {
                 if (bot && bot.socket && bot.socket.writable) {
                     bot.chat('/server anarxiya2');
                     bot.chat('/msg ItzZahridin____ men kirdim');
                     bot.chat('/msg boltavoy1 men kirdim');
-                    log(config.username, "🏰 Anarxiya 2 ga o'tildi va bildirishnomalar yuborildi.");
+                    log(config.username, "🏰 Anarxiya 2 ga o'tildi.");
                 }
-            }, 3000); // 3 soniya kutib keyin o'tadi
+            }, 3000);
         }
     });
 
     bot.on('error', (err) => log(config.username, `❌ Xato: ${err.message}`));
 
     bot.on('end', (reason) => {
-        log(config.username, `🔌 Serverdan chiqdi (${reason}). 10 soniyadan keyin qayta kiradi...`);
+        log(config.username, `🔌 Uzildi (${reason}). 10 soniyadan keyin qayta ulanadi...`);
         clearInterval(afkInterval);
+        clearInterval(hubCheckInterval);
         delete bots[config.id];
-        // 10 soniyadan keyin qayta ulanish
         setTimeout(() => createBot(config), 10000);
     });
 }
 
 // --- BOTLARNI ISHGA TUSHIRISH ---
-console.log("==========================================");
-console.log("   VORTEXCRAFT FULL AFK SYSTEM START     ");
-console.log("==========================================");
-
+console.log("=== VORTEXCRAFT HUB-DETECTOR AFK SYSTEM START ===");
 BOTS_CONFIG.forEach((config, index) => {
-    // Botlar bir vaqtda kirib ban bo'lmasligi uchun 15 soniya farq bilan yoqiladi
     setTimeout(() => createBot(config), index * 15000);
 });
 
-// Railway o'chib qolmasligi uchun portni band qilamiz
-http.createServer((req, res) => {
-    res.end("AFK Bots are running 24/7");
-}).listen(process.env.PORT || 8080);
+http.createServer((req, res) => { res.end("AFK Hub-Detector Active"); }).listen(process.env.PORT || 8080);
