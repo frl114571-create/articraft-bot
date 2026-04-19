@@ -27,55 +27,62 @@ function startBot(account) {
     const goToAnarchy = () => {
         if (bot.entity) {
             bot.chat('/server anarxiya2');
-            console.log(`[AUTO-MOVE] ${account.username}: Anarxiya2 buyrug'i yuborildi.`);
+            console.log(`[MAJBURIY] ${account.username}: /server anarxiya2 yuborildi.`);
         }
     };
 
-    // AFK zonaga borish funksiyasi
     const goToAFKWarp = () => {
         if (bot.entity) {
             bot.chat('/warp afk');
-            console.log(`[WARP] ${account.username}: /warp afk buyrug'i yuborildi.`);
+            console.log(`[WARP] ${account.username}: /warp afk yuborildi.`);
         }
     };
 
+    // 1. HUBDAN CHIQA OLMAY QOLSA - XABARLARNI ANALIZ QILISH
     bot.on('messagestr', (msg) => {
-        const cleanMsg = msg.trim();
+        const cleanMsg = msg.trim().toLowerCase();
         
-        // Loglarni ko'rib boramiz
-        if (cleanMsg) console.log(`[${account.username}] ${cleanMsg}`);
-
-        // Avtomatik Login
-        if (cleanMsg.includes('/login') || cleanMsg.includes('ʟᴏɢɪɴ') || cleanMsg.includes('Tizimga kirish')) {
+        // Login qismi
+        if (cleanMsg.includes('/login') || cleanMsg.includes('login') || cleanMsg.includes('tizimga kirish')) {
             bot.chat(`/login ${account.password}`);
+            return;
         }
 
-        // Hubda ekanini sezsa, Anarxiya2 ga o'tadi
-        if (cleanMsg.includes('xᴜꜱʜ ᴋᴇʟɪʙꜱɪᴢ') || cleanMsg.includes('Hub') || cleanMsg.includes('Lobby')) {
-            setTimeout(goToAnarchy, 7000);
+        // Hubda ekanini anglatuvchi har qanday so'z kelsa (hub, lobby, articraft)
+        // Yoki uzoq vaqt chatda harakat bo'lmasa ham o'tishga harakat qiladi
+        if (cleanMsg.includes('hub') || cleanMsg.includes('lobby') || cleanMsg.includes('articraft') || cleanMsg.includes('xush kelibsiz')) {
+            setTimeout(goToAnarchy, 10000); // 10 soniya kutib o'tadi
         }
     });
 
+    // 2. MAJBURIY TAYMERLAR (Xabarga bog'liq bo'lmagan holda ishlaydi)
     bot.on('spawn', () => {
-        console.log(`[OK] ${account.username} serverda. AFK rejimida.`);
+        console.log(`[OK] ${account.username} spawn bo'ldi.`);
         
-        // 1. Har 5 daqiqada (300,000 ms) Anarxiya2 ga o'tishni tekshiradi
-        setInterval(goToAnarchy, 300000);
+        // Bot har safar kutilmaganda spawn bo'lsa (masalan restartdan keyin), 15 soniyadan keyin o'tadi
+        setTimeout(goToAnarchy, 15000);
 
-        // 2. Har 3 soatda (10,800,000 ms) AFK zonaga boradi
-        // (3 soat = 3 * 60 * 60 * 1000)
-        setInterval(goToAFKWarp, 10800000);
+        // HAR 5 DAQIQADA MAJBURIY /server anarxiya2
+        // Bu taymer xabar kelsa-kelmasa baribir ishlaydi!
+        setInterval(() => {
+            goToAnarchy();
+        }, 300000);
+
+        // Har 3 soatda /warp afk
+        setInterval(() => {
+            goToAFKWarp();
+        }, 10800000);
     });
 
     bot.on('end', (reason) => {
-        console.log(`[!] ${account.username} uzildi: ${reason}. 30 soniyadan keyin qayta kiradi...`);
+        console.log(`[!] ${account.username} uzildi. 30 soniyadan keyin qayta kiradi...`);
         setTimeout(() => startBot(account), 30000);
     });
 
     bot.on('error', (err) => console.log(`[ERR] ${account.username}: ${err.message}`));
 }
 
-// Botlarni NAVBAT bilan (45 soniya farq bilan) kiritish
+// Botlarni kiritish
 accounts.forEach((acc, index) => {
     setTimeout(() => {
         startBot(acc);
