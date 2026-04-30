@@ -5,7 +5,7 @@ const serverPort = 25565;
 
 const accounts = [
   { username: 'zahridinafk_emas', password: 'shukrona' },
-  { username: 'Zahridin____',     password: 'shukrona' },
+  { username: 'X_PvP_X',     password: 'shukrona' },
   { username: 'Zahridin_unban',    password: 'shukrona' },
   { username: 'dffhggfgd',         password: 'shukrona' }
 ];
