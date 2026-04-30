@@ -26,7 +26,7 @@ function startBot(account) {
     // Anarxiya2 ga o'tish funksiyasi
     const goToAnarchy = () => {
         if (bot.entity) {
-            bot.chat('/server anarxiya2');
+            bot.chat('/server anarxiya');
             console.log(`[MAJBURIY] ${account.username}: /server anarxiya2 yuborildi.`);
         }
     };
